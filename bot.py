@@ -32,32 +32,20 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-DISCORD_TOKEN = os.getenv(
-    "DISCORD_TOKEN",
-    "MTQ3OTYxNjk3OTMyMDE3NjY2Mg.GYfh7d.U3Hh81DDx2ZQXD63CaLA_luGh1lzVEsax8ruGk",
-)
-TG_TOKEN = os.getenv(
-    "TELEGRAM_BOT_TOKEN",
-    "8520726896:AAEP3r9lcf1zVoLolsYuTrfA5L84XpU_zMo",
-)
-TG_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "-1003788415999")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TG_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 TARGET_CHANNELS = [
     channel_id.strip()
-    for channel_id in os.getenv(
-        "DISCORD_CHANNEL_IDS", "1472190037230616688,1472182119458537512"
-    ).split(",")
+    for channel_id in os.getenv("DISCORD_CHANNEL_IDS", "").split(",")
     if channel_id.strip()
 ]
 TARGET_CHANNEL_SET = set(TARGET_CHANNELS)
 
 ADMIN_ROLES = {
-    "1056881020336607261",
-    "1056881271114039326",
-    "1230143787238424596",
-    "1056884267877150780",
-    "1166853829250256957",
-    "1056882218485690468",
-    "1056887148265095228",
+    role_id.strip()
+    for role_id in os.getenv("ADMIN_ROLES", "").split(",")
+    if role_id.strip()
 }
 
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
