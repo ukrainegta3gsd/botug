@@ -32,7 +32,7 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "MTQ3OTYxNjk3OTMyMDE3NjY2Mg.GYfh7d.U3Hh81DDx2ZQXD63CaLA_luGh1lzVEsax8ruGk")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "MTQ5MzM5ODk2OTI4NjM5Mzg5Nw.GHUSjs._RU-wPVTBzgBgsn6mTbKwmPS1UoXTy_WT41LRc")
 TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8520726896:AAEP3r9lcf1zVoLolsYuTrfA5L84XpU_zMo")
 TG_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "-1003788415999")
 TARGET_CHANNELS = [
