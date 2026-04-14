@@ -15,7 +15,7 @@ import discord
 from discord.ext import tasks
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 # ──────────────────────────────────────────────────────────────
 # Configuration
@@ -53,9 +53,7 @@ PLAYER_REJOIN_GRACE_SECONDS = _env_int("PLAYER_REJOIN_GRACE_SECONDS", 180)
 EVENT_DEDUPE_SECONDS = float(os.getenv("EVENT_DEDUPE_SECONDS", "2.0"))
 # Мінімальний інтервал між редагуванням повідомлень Telegram (захист від rate-limit)
 TG_EDIT_COOLDOWN_SECONDS = float(os.getenv("TG_EDIT_COOLDOWN_SECONDS", "1.5"))
-# Робочі години (Київський час)
-WORK_HOUR_START = _env_int("WORK_HOUR_START", 10)  # 10:00
-WORK_HOUR_END = _env_int("WORK_HOUR_END", 21)       # до 21:00
+# (Робочі години видалено: бот працює 24/7)
 
 # ──────────────────────────────────────────────────────────────
 # Логування
@@ -182,7 +180,6 @@ class VoiceMonitorClient(discord.Client):
         self._vm_last_transition_ts: dict[tuple[int, str, str], float] = {}
 
         self._vm_startup_message_sent = False
-        self._vm_last_hour: int = kyiv_now().hour
         # Блокування на канал для захисту від race conditions
         self._vm_channel_locks: dict[str, asyncio.Lock] = {}
         # Задачі публікації (debounce швидких подій)
@@ -216,10 +213,6 @@ class VoiceMonitorClient(discord.Client):
         return self._vm_channel_locks[channel_id]
 
     # ── role helpers ─────────────────────────────────────────
-
-    def is_within_work_hours(self, moment: datetime | None = None) -> bool:
-        check = moment or kyiv_now()
-        return WORK_HOUR_START <= check.hour < WORK_HOUR_END
 
     def is_admin_member(self, member: discord.Member | None) -> bool:
         if member is None:
@@ -777,7 +770,6 @@ class VoiceMonitorClient(discord.Client):
         LOGGER.info("Підключено до Discord як %s", self.user)
 
         now = kyiv_now()
-        self._vm_last_hour = now.hour
         await self._sync_from_current_voice_state(now)
 
         if not self._vm_startup_message_sent:
@@ -785,17 +777,11 @@ class VoiceMonitorClient(discord.Client):
                 f"<code>{self._channel_display_name(cid, cid)}</code>"
                 for cid in TARGET_CHANNELS
             )
-            status = (
-                "🟢 Активний (робочий час)"
-                if self.is_within_work_hours(now)
-                else "🌙 Пауза (поза робочим часом)"
-            )
             await self.send_telegram_message(
                 f"🤖 <b>Бот запущено</b>\n"
                 f"<code>────────────────────────────</code>\n"
                 f"🕒 {format_date_clock(now)} (Київ)\n"
-                f"📌 Статус: {status}\n"
-                f"🕙 Графік: <code>{WORK_HOUR_START:02d}:00 – {WORK_HOUR_END:02d}:00</code>\n"
+                f"📌 Статус: 🟢 Активний (24/7)\n"
                 f"♻️ Grace: <code>{PLAYER_REJOIN_GRACE_SECONDS}с</code>\n"
                 f"🎯 Канали: {channels_view}"
             )
@@ -918,18 +904,16 @@ class VoiceMonitorClient(discord.Client):
             async with self._channel_lock(left_channel_id):
                 if is_admin:
                     LOGGER.info("[Адмін вийшов] %s <- %s", member.display_name, left_channel_id)
-                    if self.is_within_work_hours(now):
-                        await self._handle_admin_leave(member, left_channel_id, now)
+                    await self._handle_admin_leave(member, left_channel_id, now)
                 else:
                     LOGGER.info("[Гравець вийшов] %s <- %s", member.display_name, left_channel_id)
-                    if self.is_within_work_hours(now):
-                        await self._handle_player_leave(
-                            member,
-                            left_channel_id,
-                            now,
-                            # Без grace при переміщенні між цільовими каналами
-                            allow_grace=not joined_is_target,
-                        )
+                    await self._handle_player_leave(
+                        member,
+                        left_channel_id,
+                        now,
+                        # Без grace при переміщенні між цільовими каналами
+                        allow_grace=not joined_is_target,
+                    )
 
         # ── Вхід у новий канал ──
         if joined_is_target and joined_channel_id:
@@ -937,77 +921,20 @@ class VoiceMonitorClient(discord.Client):
                 channel_name = self._channel_display_name(joined_channel_id, joined_channel_id)
                 if is_admin:
                     LOGGER.info("[Адмін зайшов] %s -> %s", member.display_name, joined_channel_id)
-                    if self.is_within_work_hours(now):
-                        await self._handle_admin_join(member, joined_channel_id, now)
+                    await self._handle_admin_join(member, joined_channel_id, now)
                 else:
                     LOGGER.info("[Гравець зайшов] %s -> %s", member.display_name, joined_channel_id)
-                    if self.is_within_work_hours(now):
-                        await self._handle_player_join(
-                            member, joined_channel_id, channel_name, now
-                        )
+                    await self._handle_player_join(
+                        member, joined_channel_id, channel_name, now
+                    )
 
     # ── maintenance loop ─────────────────────────────────────
 
     @tasks.loop(seconds=20)
     async def maintenance_loop(self) -> None:
         now = kyiv_now()
-        current_hour = now.hour
 
-        # ── Початок зміни ──
-        if current_hour == WORK_HOUR_START and self._vm_last_hour == WORK_HOUR_START - 1:
-            LOGGER.info("Зміна розпочата о %02d:00", WORK_HOUR_START)
-            await self.send_telegram_message(
-                f"🚀 <b>Зміна розпочата</b>\n"
-                f"<code>────────────────────────────</code>\n"
-                f"🕒 {format_date_clock(now)} (Київ)\n"
-                f"✅ Моніторинг <b>активовано</b>\n"
-                f"🕙 Графік: <code>{WORK_HOUR_START:02d}:00 – {WORK_HOUR_END:02d}:00</code>"
-            )
-            await self._sync_from_current_voice_state(now)
-
-        # ── Кінець зміни ──
-        if current_hour == WORK_HOUR_END and self._vm_last_hour == WORK_HOUR_END - 1:
-            LOGGER.info("Зміна завершена о %02d:00", WORK_HOUR_END)
-            # Закриваємо всі активні сесії
-            for channel_id in list(self._vm_voice_sessions.keys()):
-                session = self._vm_voice_sessions.get(channel_id)
-                if not session:
-                    continue
-                for player in session.players.values():
-                    if player.current_join_at is not None:
-                        played = max(0, int((now - player.current_join_at).total_seconds()))
-                        player.total_online_seconds += played
-                        player.current_join_at = None
-                        player.last_leave_at = now
-                        player.pending_until = None
-                    elif player.pending_until is not None:
-                        player.pending_until = None
-                session.closed_reason = f"Автозавершення: кінець зміни о {WORK_HOUR_END:02d}:00"
-                self._recalculate_session_status(session, channel_id, now)
-                await self._publish_session(channel_id, now)
-            self._vm_voice_sessions.clear()
-            await self.send_telegram_message(
-                f"🌙 <b>Зміна завершена</b>\n"
-                f"<code>────────────────────────────</code>\n"
-                f"🕒 {format_date_clock(now)} (Київ)\n"
-                f"💤 Моніторинг <b>призупинено</b>\n"
-                f"⏰ До зустрічі о <code>{WORK_HOUR_START:02d}:00</code>"
-            )
-
-        self._vm_last_hour = current_hour
-
-        # ── Обслуговування активних сесій (тільки в робочий час) ──
-        if not self.is_within_work_hours(now):
-            # Очищаємо locks поза робочим часом
-            stale_locks = [
-                cid for cid in list(self._vm_channel_locks.keys())
-                if cid not in self._vm_voice_sessions
-                and not self._vm_channel_locks[cid].locked()
-            ]
-            for cid in stale_locks:
-                self._vm_channel_locks.pop(cid, None)
-            return
-
+        # ── Обслуговування активних сесій ──
         for channel_id in list(self._vm_voice_sessions.keys()):
             async with self._channel_lock(channel_id):
                 session = self._vm_voice_sessions.get(channel_id)
