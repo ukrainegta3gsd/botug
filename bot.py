@@ -32,27 +32,27 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TG_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+DISCORD_TOKEN = "MTQ5MzM5ODY1NTAxOTkwOTEzMw.GLhLLF.oBRzWUylwOqaCnE3L8lJArM56xJMJqsDeC5ww4"
+TG_TOKEN = "8520726896:AAEP3r9lcf1zVoLolsYuTrfA5L84XpU_zMo"
+TG_CHAT_ID = "-1003788415999"
 TARGET_CHANNELS = [
     channel_id.strip()
-    for channel_id in os.getenv("DISCORD_CHANNEL_IDS", "").split(",")
+    for channel_id in "1472190037230616688,1472182119458537512".split(",")
     if channel_id.strip()
 ]
 TARGET_CHANNEL_SET = set(TARGET_CHANNELS)
 
 ADMIN_ROLES = {
     role_id.strip()
-    for role_id in os.getenv("ADMIN_ROLES", "").split(",")
+    for role_id in "1056881020336607261,1056881271114039326,1230143787238424596,1056884267877150780,1166853829250256957,1056882218485690468,1056887148265095228".split(",")
     if role_id.strip()
 }
 
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
-PLAYER_REJOIN_GRACE_SECONDS = _env_int("PLAYER_REJOIN_GRACE_SECONDS", 180)
-EVENT_DEDUPE_SECONDS = float(os.getenv("EVENT_DEDUPE_SECONDS", "2.0"))
+PLAYER_REJOIN_GRACE_SECONDS = 180
+EVENT_DEDUPE_SECONDS = 2.0
 # Мінімальний інтервал між редагуванням повідомлень Telegram (захист від rate-limit)
-TG_EDIT_COOLDOWN_SECONDS = float(os.getenv("TG_EDIT_COOLDOWN_SECONDS", "1.5"))
+TG_EDIT_COOLDOWN_SECONDS = 1.5
 # (Робочі години видалено: бот працює 24/7)
 
 # ──────────────────────────────────────────────────────────────
